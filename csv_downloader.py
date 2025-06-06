@@ -25,6 +25,16 @@ class CSVDownloader:
     
     BASE_URL = "https://twtransfer.energytransfer.com/ipost/capacity/operationally-available"
     
+    # Cycle mapping with proper names and numbers
+    CYCLES = {
+        'timely': 0,
+        'evening': 1, 
+        'intraday_1': 3,
+        'intraday_2': 4,
+        'final': 5,
+        'intraday_3': 7
+    }
+    
     def __init__(self, data_dir: str = "data"):
         """
         Initialize the CSV downloader.
@@ -169,16 +179,23 @@ class CSVDownloader:
         for date in dates:
             logger.info(f"Processing date: {date.strftime('%Y-%m-%d')}")
             
-            # Try multiple cycles (typically 1-4 cycles per day)
-            for cycle in range(1, 5):
+            # Try all available cycles based on the cycle mapping
+            cycles_to_try = list(self.CYCLES.values())  # [0, 1, 3, 4, 5, 7]
+            
+            for cycle in cycles_to_try:
                 try:
                     filepath = self.download_for_date_and_cycle(date, cycle)
                     if filepath:
                         downloaded_files.append(filepath)
+                        # Get cycle name for logging
+                        cycle_name = next((name for name, num in self.CYCLES.items() if num == cycle), f"cycle_{cycle}")
+                        logger.info(f"Downloaded {cycle_name} (cycle {cycle}) for {date.strftime('%Y-%m-%d')}")
                     else:
-                        logger.info(f"No data available for {date.strftime('%Y-%m-%d')} cycle {cycle}")
+                        cycle_name = next((name for name, num in self.CYCLES.items() if num == cycle), f"cycle_{cycle}")
+                        logger.info(f"No data available for {date.strftime('%Y-%m-%d')} {cycle_name} (cycle {cycle})")
                 except Exception as e:
-                    logger.error(f"Error downloading {date.strftime('%Y-%m-%d')} cycle {cycle}: {e}")
+                    cycle_name = next((name for name, num in self.CYCLES.items() if num == cycle), f"cycle_{cycle}")
+                    logger.error(f"Error downloading {date.strftime('%Y-%m-%d')} {cycle_name} (cycle {cycle}): {e}")
         
         logger.info(f"Download complete. Successfully downloaded {len(downloaded_files)} files")
         return downloaded_files
