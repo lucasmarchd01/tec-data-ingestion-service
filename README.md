@@ -21,6 +21,7 @@ The CSV downloader retrieves operationally available capacity data from Energy T
 tec-data-ingestion-service/
 ├── csv_downloader.py      # Main downloader class
 ├── scheduler.py           # Simple scheduler for automated runs
+├── database_uploader.py   # Script to upload CSV data to PostgreSQL
 ├── requirements.txt       # Python dependencies
 ├── README.md             # This file
 ├── data/                 # Directory for downloaded CSV files (created automatically)
@@ -63,6 +64,22 @@ Or using the scheduler:
 ```bash
 python3 scheduler.py
 ```
+
+### Upload Downloaded CSVs to Database
+
+After downloading CSV files to the `data/` directory, you can upload them to the PostgreSQL database using:
+
+```bash
+# Ensure your PostgreSQL server is running and configured (see Database Setup)
+python3 database_uploader.py
+```
+Make sure to set the following environment variables for database connection, or update them in `database_uploader.py`:
+- `DB_HOST` (defaults to `localhost`)
+- `DB_NAME` (defaults to `tec_data`)
+- `DB_USER` (defaults to `postgres`)
+- `DB_PASSWORD` (defaults to `password`)
+- `DB_PORT` (defaults to `5432`)
+
 
 ### Run Continuously (Scheduled Downloads)
 
@@ -109,6 +126,39 @@ Each CSV contains the following columns:
 - `Nom Cap Exceed Ind`: Nomination Capacity Exceed Indicator
 - `All Qty Avail`: All Quantity Available
 - `Qty Reason`: Quantity Reason
+
+## Database Setup and Uploading
+
+The `database_uploader.py` script handles uploading the downloaded CSV data into a PostgreSQL database.
+
+**Features:**
+- **Automated Table Creation**: Creates the `tec_data` table if it doesn't exist, matching the CSV structure.
+- **Pandas & SQLAlchemy**: Uses pandas for efficient CSV parsing and data manipulation, and SQLAlchemy for robust database interaction.
+- **Column Name Cleaning**: Automatically adjusts CSV column names to be database-friendly (e.g., "Loc Zn" becomes "loc_zn").
+- **Append Data**: Appends data to the table, allowing for multiple runs without duplicating schema.
+- **Environment Variable Configuration**: Database connection parameters can be set via environment variables.
+
+**Prerequisites:**
+- A running PostgreSQL server.
+- `psycopg2-binary`, `pandas`, and `SQLAlchemy` Python packages (included in `requirements.txt`).
+
+**Table Schema (`tec_data`):**
+- `id`: SERIAL PRIMARY KEY
+- `loc`: VARCHAR(255)
+- `loc_zn`: VARCHAR(255)
+- `loc_name`: VARCHAR(255)
+- `loc_purp_desc`: VARCHAR(255)
+- `loc_qti`: VARCHAR(255)
+- `flow_ind`: VARCHAR(10)
+- `dc`: INTEGER
+- `opc`: INTEGER
+- `tsq`: INTEGER
+- `oac`: INTEGER
+- `it`: VARCHAR(10)
+- `auth_overrun_ind`: VARCHAR(10)
+- `nom_cap_exceed_ind`: VARCHAR(10)
+- `all_qty_avail`: VARCHAR(10)
+- `qty_reason`: VARCHAR(255)
 
 ## File Naming Convention
 
@@ -162,6 +212,9 @@ This is Phase 1 of the project focusing solely on CSV downloading. Future phases
 
 - Python 3.7+
 - `requests` library for HTTP downloads
+- `psycopg2-binary` for PostgreSQL connection
+- `pandas` for data handling
+- `SQLAlchemy` for database interaction
 - Internet connection to access Energy Transfer API
 
 ## Troubleshooting
