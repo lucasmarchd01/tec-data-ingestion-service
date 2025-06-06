@@ -1,2 +1,7 @@
 .DS_Store
 .venv
+__pycache__/
+.env
+
+# Data files (downloaded by script)
+data/
