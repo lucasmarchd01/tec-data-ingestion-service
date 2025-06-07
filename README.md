@@ -19,12 +19,17 @@ The CSV downloader retrieves operationally available capacity data from Energy T
 
 ```
 tec-data-ingestion-service/
-├── csv_downloader.py      # Main downloader class
-├── scheduler.py           # Simple scheduler for automated runs
-├── database_uploader.py   # Script to upload CSV data to PostgreSQL
+├── src/
+│   ├── __init__.py
+│   ├── downloader.py      # Main downloader class
+│   ├── uploader.py        # Script to upload CSV data to PostgreSQL
+│   ├── scheduler.py       # Simple scheduler for automated runs
+│   ├── validator.py       # Data validation logic
+│   └── main.py            # Unified entry point for the application
+├── data/                 # Directory for downloaded CSV files (created automatically)
+├── scripts/              # Utility scripts (e.g., for database setup)
 ├── requirements.txt       # Python dependencies
 ├── README.md             # This file
-├── data/                 # Directory for downloaded CSV files (created automatically)
 └── sample_data.csv       # Sample data file
 ```
 
@@ -51,29 +56,50 @@ tec-data-ingestion-service/
 
 ## Usage
 
-### Run Once (Download Current Data)
+### Run the Integrated Workflow (Download, Validate, Upload)
 
-To download CSV files for the last 3 days and exit:
-
-```bash
-python3 csv_downloader.py
-```
-
-Or using the scheduler:
+To run the complete data ingestion pipeline (download, validate, and upload):
 
 ```bash
-python3 scheduler.py
+python3 src/main.py
 ```
 
-### Upload Downloaded CSVs to Database
+This command will execute the sequential workflow defined in `src/main.py`.
 
-After downloading CSV files to the `data/` directory, you can upload them to the PostgreSQL database using:
+### Run Individual Components
+
+#### Download CSVs
+
+To download CSV files for the last 3 days:
+
+```bash
+python3 src/downloader.py
+```
+
+Or using the scheduler for more complex scenarios (e.g., continuous runs):
+
+```bash
+python3 src/scheduler.py
+```
+
+#### Validate Downloaded CSVs
+
+To validate the CSV files in the `data/` directory:
+```bash
+python3 src/validator.py
+```
+*(Note: Specific command-line arguments for the validator might be added as the `validator.py` script is developed.)*
+
+
+#### Upload Validated CSVs to Database
+
+After downloading and validating CSV files, you can upload them to the PostgreSQL database using:
 
 ```bash
 # Ensure your PostgreSQL server is running and configured (see Database Setup)
-python3 database_uploader.py
+python3 src/uploader.py
 ```
-Make sure to set the following environment variables for database connection, or update them in `database_uploader.py`:
+Make sure to set the following environment variables for database connection, or update them in `src/uploader.py`:
 - `DB_HOST` (defaults to `localhost`)
 - `DB_NAME` (defaults to `tec_data`)
 - `DB_USER` (defaults to `postgres`)
@@ -81,20 +107,21 @@ Make sure to set the following environment variables for database connection, or
 - `DB_PORT` (defaults to `5432`)
 
 
-### Run Continuously (Scheduled Downloads)
+### Run Continuously (Scheduled Downloads via Scheduler)
 
-To run the downloader continuously with automatic scheduling:
+To run the downloader continuously using the dedicated scheduler:
 
 ```bash
 # Run every 6 hours (default)
-python3 scheduler.py --continuous
+python3 src/scheduler.py --continuous
 
 # Run every 2 hours
-python3 scheduler.py --continuous 2
+python3 src/scheduler.py --continuous 2
 
 # Run every 12 hours  
-python3 scheduler.py --continuous 12
+python3 src/scheduler.py --continuous 12
 ```
+*(Note: The `main.py` script might also incorporate continuous run capabilities in the future.)*
 
 ### Stop Continuous Mode
 
@@ -129,7 +156,7 @@ Each CSV contains the following columns:
 
 ## Database Setup and Uploading
 
-The `database_uploader.py` script handles uploading the downloaded CSV data into a PostgreSQL database.
+The `src/uploader.py` script handles uploading the downloaded CSV data into a PostgreSQL database.
 
 **Features:**
 - **Automated Table Creation**: Creates the `tec_data` table if it doesn't exist, matching the CSV structure.
@@ -184,7 +211,7 @@ Logs are printed to the console with timestamps and severity levels.
 
 ## Configuration
 
-Key configuration options in the `CSVDownloader` class:
+Key configuration options in the `src/downloader.py` (formerly `CSVDownloader` class):
 
 - `data_dir`: Directory to store downloaded files (default: "data")
 - `days_back`: Number of days to download (default: 3)
@@ -236,7 +263,7 @@ This is Phase 1 of the project focusing solely on CSV downloading. Future phases
 
 ### Debug Mode
 
-To enable more verbose logging, modify the logging level in the Python files:
+To enable more verbose logging, modify the logging level in the Python files (e.g., `src/downloader.py`, `src/main.py`):
 ```python
 logging.basicConfig(level=logging.DEBUG)
 ```
