@@ -1,6 +1,9 @@
 import pandas as pd
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, text, BOOLEAN, INTEGER
 import os
+
+# Import the validator function
+from validator import validate_dataframe
 
 # Database connection parameters
 DB_HOST = os.environ.get("DB_HOST", "localhost")
@@ -37,10 +40,10 @@ def create_table_if_not_exists(engine):
                 opc INTEGER,
                 tsq INTEGER,
                 oac INTEGER,
-                it VARCHAR(10),
-                auth_overrun_ind VARCHAR(10),
-                nom_cap_exceed_ind VARCHAR(10),
-                all_qty_avail VARCHAR(10),
+                it BOOLEAN,
+                auth_overrun_ind BOOLEAN,
+                nom_cap_exceed_ind BOOLEAN,
+                all_qty_avail BOOLEAN,
                 qty_reason VARCHAR(255)
             );
         """
@@ -59,14 +62,45 @@ def clean_column_names(df):
     return df
 
 
+def convert_to_boolean(df, columns):
+    """Converts 'Y'/'N' columns to boolean True/False."""
+    for col in columns:
+        if col in df.columns:
+            df[col] = (
+                df[col].map({"Y": True, "N": False, "": None}).astype(pd.BooleanDtype())
+            )
+    return df
+
+
 def insert_data_from_csv_pandas(engine, csv_filepath):
-    """Parses a CSV file and inserts its data into the table using pandas.to_sql."""
+    """Parses a CSV file, validates it, transforms data, and inserts it into the table using pandas.to_sql."""
     try:
         df = pd.read_csv(csv_filepath)
+        if df.empty:
+            print(f"Warning: CSV file {csv_filepath} is empty. Skipping.")
+            return
+
         df = clean_column_names(df)
 
+        # Columns to convert to boolean
+        boolean_columns = [
+            "it",
+            "auth_overrun_ind",
+            "nom_cap_exceed_ind",
+            "all_qty_avail",
+        ]
+        df = convert_to_boolean(df, boolean_columns)
+
+        # Validate the DataFrame
+        df_validated = validate_dataframe(
+            df.copy(), csv_filepath
+        )  # Pass filepath for context in validation
+
+        if df_validated is None:
+            print(f"Validation failed for {csv_filepath}. Skipping insertion.")
+            return
+
         # Ensure all expected columns exist in the DataFrame, add if missing with None/NaN
-        # This is important if some CSVs might have missing optional columns
         expected_db_cols = [
             "loc",
             "loc_zn",
@@ -85,17 +119,45 @@ def insert_data_from_csv_pandas(engine, csv_filepath):
             "qty_reason",
         ]
         for col in expected_db_cols:
-            if col not in df.columns:
-                df[col] = None  # Or pd.NA
+            if col not in df_validated.columns:
+                df_validated[col] = pd.NA  # Use pd.NA for nullable dtypes
 
         # Select only the columns that match the table schema to avoid errors
-        df_to_insert = df[expected_db_cols]
+        df_to_insert = df_validated[expected_db_cols]
+
+        # Explicitly cast integer columns to handle potential pd.NA before to_sql
+        # This is important because to_sql might struggle with mixed types if pd.NA is present in int columns
+        int_columns = ["dc", "opc", "tsq", "oac"]
+        for col in int_columns:
+            if col in df_to_insert.columns:
+                # Convert to float first to handle NA, then to Int64 (nullable integer)
+                df_to_insert[col] = pd.to_numeric(
+                    df_to_insert[col], errors="coerce"
+                ).astype(pd.Int64Dtype())
 
         df_to_insert.to_sql(
-            TABLE_NAME, engine, if_exists="append", index=False, chunksize=1000
-        )  # Added chunksize
-    except pd.errors.EmptyDataError:
-        print(f"Warning: CSV file {csv_filepath} is empty. Skipping.")
+            TABLE_NAME,
+            engine,
+            if_exists="append",
+            index=False,
+            chunksize=1000,
+            dtype={  # Specify SQLAlchemy types for boolean columns
+                "it": BOOLEAN,
+                "auth_overrun_ind": BOOLEAN,
+                "nom_cap_exceed_ind": BOOLEAN,
+                "all_qty_avail": BOOLEAN,
+                "dc": INTEGER,
+                "opc": INTEGER,
+                "tsq": INTEGER,
+                "oac": INTEGER,
+            },
+        )
+    except (
+        pd.errors.EmptyDataError
+    ):  # Should be caught by the initial check, but good to keep
+        print(
+            f"Warning: CSV file {csv_filepath} is empty (caught by specific exception). Skipping."
+        )
     except Exception as e:
         print(f"Error processing file {csv_filepath} with pandas: {e}")
 
@@ -117,7 +179,7 @@ def main():
                 csv_filepath = os.path.join(data_dir, filename)
                 print(f"Processing {csv_filepath}...")
                 insert_data_from_csv_pandas(engine, csv_filepath)
-                print(f"Finished processing {csv_filepath}.")
+                # print(f"Finished processing {csv_filepath}.") # Removed to reduce noise, error messages will indicate issues
 
         print("Data upload complete.")
 
