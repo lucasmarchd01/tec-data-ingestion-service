@@ -8,7 +8,7 @@ Simple scheduler to run the CSV downloader at regular intervals.
 import time
 import logging
 from datetime import datetime
-from csv_downloader import CSVDownloader
+from downloader import CSVDownloader
 
 # Configure logging
 logging.basicConfig(
