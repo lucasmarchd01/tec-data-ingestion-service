@@ -27,7 +27,6 @@ tec-data-ingestion-service/
 │   ├── validator.py       # Data validation logic
 │   └── main.py            # Unified entry point for the application
 ├── data/                 # Directory for downloaded CSV files (created automatically)
-├── scripts/              # Utility scripts (e.g., for database setup)
 ├── requirements.txt       # Python dependencies
 ├── README.md             # This file
 └── sample_data.csv       # Sample data file
@@ -262,14 +261,6 @@ The downloader handles various error scenarios:
 - **Missing Data**: Logs when no data is available for specific dates/cycles
 - **File System Issues**: Creates directories and handles permissions
 
-## Development Notes
-
-This is Phase 1 of the project focusing solely on CSV downloading. Future phases will include:
-- Database schema design (PostgreSQL)
-- Data validation and parsing
-- Database insertion
-- More sophisticated scheduling
-- Data quality monitoring
 
 ## Requirements
 
@@ -280,22 +271,6 @@ This is Phase 1 of the project focusing solely on CSV downloading. Future phases
 - `SQLAlchemy` for database interaction
 - Internet connection to access Energy Transfer API
 
-## Troubleshooting
-
-### Common Issues
-
-1. **No files downloaded**:
-   - Check internet connection
-   - Verify the Energy Transfer website is accessible
-   - Check if dates/cycles have available data
-
-2. **Permission errors**:
-   - Ensure write permissions in the project directory
-   - Check if the `data/` directory can be created
-
-3. **Import errors**:
-   - Ensure all dependencies are installed: `pip install -r requirements.txt`
-   - Verify Python version compatibility
 
 ### Debug Mode
 
