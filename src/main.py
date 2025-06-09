@@ -10,19 +10,21 @@ This module provides a unified entry point for the complete data ingestion workf
 This orchestrates the downloader, validator, and uploader modules into a seamless pipeline.
 """
 
+import argparse
+import logging
 import os
 import sys
-import logging
-import argparse
+import time
 from datetime import datetime
 from typing import List, Optional
-import time
+
+from sqlalchemy import text
 
 # Import our modules
 from downloader import CSVDownloader
 from uploader import (
-    get_db_engine,
     create_table_if_not_exists,
+    get_db_engine,
     insert_data_from_csv_pandas,
 )
 from validator import validate_dataframe
@@ -360,7 +362,7 @@ def check_database_connection() -> bool:
     try:
         engine = get_db_engine()
         with engine.connect() as conn:
-            conn.execute("SELECT 1")
+            conn.execute(text("SELECT 1"))
         engine.dispose()
         logger.info("Database connection test successful")
         return True
