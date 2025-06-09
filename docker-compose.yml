@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:14
+    environment:
+      POSTGRES_DB: tec_data
+      POSTGRES_USER: tec_user
+      POSTGRES_PASSWORD: tec_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  app:
+    build: .
+    depends_on:
+      - postgres
+    environment:
+      - DB_HOST=postgres
+      - DB_NAME=tec_data
+      - DB_USER=tec_user
+      - DB_PASSWORD=tec_password
+      - DB_PORT=5432
+    volumes:
+      - ./data:/app/data
+
+volumes:
+  postgres_data:
