@@ -64,7 +64,43 @@ To run the complete data ingestion pipeline (download, validate, and upload):
 python3 src/main.py
 ```
 
-This command will execute the sequential workflow defined in `src/main.py`.
+This command will execute the sequential workflow that:
+1. Downloads CSV files from Energy Transfer TW pipeline system
+2. Validates the downloaded data using the built-in validator
+3. Uploads the validated data to your PostgreSQL database
+
+#### Additional Options for Main Pipeline
+
+The `main.py` script provides several useful options:
+
+```bash
+# Run complete pipeline once (default)
+python3 src/main.py
+
+# Run continuously every 6 hours (default interval)
+python3 src/main.py --continuous
+
+# Run continuously with custom interval (e.g., every 2 hours)
+python3 src/main.py --continuous --interval 2
+
+# Process existing CSV files only (skip download)
+python3 src/main.py --skip-download
+
+# Download and validate only (skip database upload)
+python3 src/main.py --skip-upload
+
+# Use custom data directory
+python3 src/main.py --data-dir /path/to/custom/data
+
+# Test database connection only
+python3 src/main.py --test-db
+
+# Enable verbose logging
+python3 src/main.py --verbose
+
+# Get help and see all options
+python3 src/main.py --help
+```
 
 ### Run Individual Components
 
