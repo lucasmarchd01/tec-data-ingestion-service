@@ -14,20 +14,19 @@ import argparse
 import logging
 import os
 import sys
-import time
 from datetime import datetime
-from typing import List, Optional
+from typing import List
 
 from sqlalchemy import text
 
 # Import our modules
 from downloader import CSVDownloader
+from scheduler import Scheduler
 from uploader import (
     create_table_if_not_exists,
     get_db_engine,
     insert_data_from_csv_pandas,
 )
-from validator import validate_dataframe
 
 # Configure logging
 logging.basicConfig(
@@ -322,34 +321,18 @@ class DataIngestionPipeline:
 
         return success
 
-    def run_continuous(self, interval_hours: int = 6):
+    def create_pipeline_task(self):
         """
-        Run the pipeline continuously at specified intervals.
+        Create a task function that can be used by the scheduler.
 
-        Args:
-            interval_hours: Hours between pipeline runs (default: 6)
+        Returns:
+            A callable that executes the pipeline and returns success status
         """
-        logger.info(
-            f"Starting continuous pipeline execution (interval: {interval_hours} hours)"
-        )
 
-        run_count = 0
-        while True:
-            run_count += 1
-            logger.info(f"Starting pipeline run #{run_count}")
+        def pipeline_task():
+            return self.run_pipeline()
 
-            try:
-                success = self.run_pipeline()
-                if success:
-                    logger.info(f"Pipeline run #{run_count} completed successfully")
-                else:
-                    logger.warning(f"Pipeline run #{run_count} completed with errors")
-            except Exception as e:
-                logger.error(f"Pipeline run #{run_count} failed with exception: {e}")
-
-            # Wait for next run
-            logger.info(f"Waiting {interval_hours} hours until next pipeline run...")
-            time.sleep(interval_hours * 3600)
+        return pipeline_task
 
 
 def check_database_connection() -> bool:
@@ -473,13 +456,21 @@ Examples:
 
     try:
         if args.continuous:
-            # Run continuously
+            # Run continuously using the scheduler
             if args.interval < 1:
                 logger.error("Interval must be at least 1 hour")
                 sys.exit(1)
 
             logger.info(f"Starting continuous mode with {args.interval} hour intervals")
-            pipeline.run_continuous(interval_hours=args.interval)
+
+            # Create scheduler and set the pipeline task
+            scheduler = Scheduler(
+                interval_hours=args.interval, task_name="Data Ingestion Pipeline"
+            )
+            scheduler.set_task(pipeline.create_pipeline_task())
+
+            # Run continuously
+            scheduler.run_continuous()
         else:
             # Run once
             success = pipeline.run_pipeline()
