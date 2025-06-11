@@ -1,19 +1,20 @@
-# TEC Energy Data Ingestion Service - CSV Downloader
+# TEC Energy Data Ingestion Service
 
-This is the first phase of the TEC Energy Data Ingestion Service project. This component handles downloading CSV files containing natural gas shipment data from Energy Transfer's TW pipeline system.
+A complete data pipeline that downloads, validates, and stores natural gas shipment data from Energy Transfer's TW pipeline system into a PostgreSQL database.
 
 ## Overview
 
-The CSV downloader retrieves operationally available capacity data from Energy Transfer's public API. The system downloads data from the last 3 days, handling multiple cycles per day (typically 1-4 cycles).
+This service downloads operationally available capacity data from Energy Transfer's public API for the last 3 days, validates the data structure, and uploads it to PostgreSQL. The system processes data from 6 different cycles per day (timely, evening, intraday_1-3, final).
 
 ## Features
 
-- **Automated CSV Downloads**: Downloads natural gas shipment data from Energy Transfer
-- **Multi-day Coverage**: Retrieves data from the last 3 days by default
-- **Cycle Handling**: Attempts to download multiple cycles per day (1-4)
-- **Error Handling**: Robust error handling with detailed logging
-- **Flexible Scheduling**: Can run once or continuously at specified intervals
-- **Data Organization**: Saves files with descriptive names including date and cycle
+- **Complete Data Pipeline**: Downloads, validates, and uploads data in a single workflow
+- **Multi-cycle Processing**: Handles 6 cycle types per day (cycles 0, 1, 3, 4, 5, 7)
+- **Data Validation**: Validates CSV structure, data types, and content before database insertion
+- **PostgreSQL Integration**: Automatic table creation and data uploading
+- **Docker Support**: Complete containerized setup with PostgreSQL database
+- **Flexible Scheduling**: Run once or continuously at specified intervals
+- **Error Handling**: Comprehensive error handling with detailed logging
 
 ## Project Structure
 
@@ -21,160 +22,161 @@ The CSV downloader retrieves operationally available capacity data from Energy T
 tec-data-ingestion-service/
 ├── src/
 │   ├── __init__.py
-│   ├── downloader.py      # Main downloader class
-│   ├── uploader.py        # Script to upload CSV data to PostgreSQL
-│   ├── scheduler.py       # Simple scheduler for automated runs
+│   ├── downloader.py      # CSV downloader for Energy Transfer data
+│   ├── uploader.py        # PostgreSQL database uploader
+│   ├── scheduler.py       # Task scheduler for automated runs
 │   ├── validator.py       # Data validation logic
-│   └── main.py            # Unified entry point for the application
-├── data/                 # Directory for downloaded CSV files (created automatically)
-├── requirements.txt       # Python dependencies
-├── README.md             # This file
-└── sample_data.csv       # Sample data file
+│   └── main.py            # Main pipeline orchestrator
+├── sql/
+│   └── init.sql          # Database initialization script
+├── data/                 # Directory for downloaded CSV files
+├── docker-compose.yml    # Docker services configuration
+├── Dockerfile           # Container configuration
+├── requirements.txt     # Python dependencies
+└── README.md           # This file
 ```
 
-## Installation
+## Quick Start
 
-1. **Clone the repository** (when ready to publish):
+### Docker (Recommended)
+
+**Prerequisites**: Docker and Docker Compose installed on your system
+
+1. **Start the services**:
    ```bash
-   git clone <repository-url>
-   cd tec-data-ingestion-service
+   docker-compose up --build
+   ```
+   This will start PostgreSQL database, build the application container, and process existing CSV files in the `data/` directory.
+
+2. **Run the complete pipeline**:
+   ```bash
+   docker-compose exec app python3 src/main.py
    ```
 
-2. **Create a virtual environment** (recommended):
+3. **Run with different options**:
    ```bash
-   python3 -m venv venv
-   source venv/bin/activate  # On macOS/Linux
-   # or
-   venv\Scripts\activate     # On Windows
+   # Skip download and process existing files
+   docker-compose run --rm app python3 src/main.py --skip-download
+   
+   # Run continuously every 2 hours
+   docker-compose run --rm app python3 src/main.py --continuous --interval 2
+   
+   # Test database connection
+   docker-compose run --rm app python3 src/main.py --test-db
    ```
 
-3. **Install dependencies**:
+4. **Access the database**:
+   - Host: `localhost`
+   - Port: `5432`
+   - Database: `tec_data`
+   - User: `tec_user` 
+   - Password: `tec_password`
+
+5. **Stop the services**:
+   ```bash
+   # Stop containers
+   docker-compose down
+   
+   # Stop and remove database data
+   docker-compose down -v
+   ```
+
+### Local Development
+
+1. **Install dependencies**:
    ```bash
    pip install -r requirements.txt
    ```
 
+2. **Set up PostgreSQL** and configure environment variables:
+   ```bash
+   export DB_HOST=localhost
+   export DB_NAME=tec_data
+   export DB_USER=postgres
+   export DB_PASSWORD=your_password
+   ```
+
+3. **Run the pipeline**:
+   ```bash
+   python3 src/main.py
+   ```
+
 ## Usage
 
-### Run the Integrated Workflow (Download, Validate, Upload)
+### Complete Pipeline
 
-To run the complete data ingestion pipeline (download, validate, and upload):
-
-```bash
-python3 src/main.py
-```
-
-This command will execute the sequential workflow that:
-1. Downloads CSV files from Energy Transfer TW pipeline system
-2. Validates the downloaded data using the built-in validator
-3. Uploads the validated data to your PostgreSQL database
-
-#### Additional Options for Main Pipeline
-
-The `main.py` script provides several useful options:
+Run the full data ingestion workflow (download → validate → upload):
 
 ```bash
-# Run complete pipeline once (default)
+# Run once (default: last 3 days)
 python3 src/main.py
 
-# Run continuously every 6 hours (default interval)
+# Run continuously every 6 hours
 python3 src/main.py --continuous
 
-# Run continuously with custom interval (e.g., every 2 hours)
+# Custom interval (every 2 hours)
 python3 src/main.py --continuous --interval 2
 
-# Process existing CSV files only (skip download)
+# Skip download, process existing files
 python3 src/main.py --skip-download
 
-# Download and validate only (skip database upload)
+# Download and validate only (skip upload)
 python3 src/main.py --skip-upload
 
-# Use custom data directory
-python3 src/main.py --data-dir /path/to/custom/data
-
-# Test database connection only
+# Test database connection
 python3 src/main.py --test-db
-
-# Enable verbose logging
-python3 src/main.py --verbose
-
-# Get help and see all options
-python3 src/main.py --help
 ```
 
-### Run Individual Components
-
-#### Download CSVs
-
-To download CSV files for the last 3 days:
+### Individual Components
 
 ```bash
+# Download only
 python3 src/downloader.py
-```
 
-Or using the scheduler for more complex scenarios (e.g., continuous runs):
-
-```bash
-python3 src/scheduler.py
-```
-
-#### Validate Downloaded CSVs
-
-To validate the CSV files in the `data/` directory:
-```bash
+# Validate existing CSV files
 python3 src/validator.py
-```
-*(Note: Specific command-line arguments for the validator might be added as the `validator.py` script is developed.)*
 
-
-#### Upload Validated CSVs to Database
-
-After downloading and validating CSV files, you can upload them to the PostgreSQL database using:
-
-```bash
-# Ensure your PostgreSQL server is running and configured (see Database Setup)
+# Upload to database
 python3 src/uploader.py
 ```
-Make sure to set the following environment variables for database connection, or update them in `src/uploader.py`:
-- `DB_HOST` (defaults to `localhost`)
-- `DB_NAME` (defaults to `tec_data`)
-- `DB_USER` (defaults to `postgres`)
-- `DB_PASSWORD` (defaults to `password`)
-- `DB_PORT` (defaults to `5432`)
-
-
-### Run Continuously (Scheduled Downloads via Scheduler)
-
-To run the downloader continuously using the dedicated scheduler:
-
-```bash
-# Run every 6 hours (default)
-python3 src/scheduler.py --continuous
-
-# Run every 2 hours
-python3 src/scheduler.py --continuous 2
-
-# Run every 12 hours  
-python3 src/scheduler.py --continuous 12
-```
-*(Note: The `main.py` script might also incorporate continuous run capabilities in the future.)*
-
-### Stop Continuous Mode
-
-Press `Ctrl+C` to stop the continuous scheduler.
 
 ## Data Source
 
-The CSV files are downloaded from:
+The CSV files are downloaded from Energy Transfer's TW pipeline system:
 - **Base URL**: `https://twtransfer.energytransfer.com/ipost/capacity/operationally-available`
 - **Data Type**: Operationally available capacity for natural gas shipments
-- **Update Frequency**: Multiple times per day (cycles)
+- **Update Frequency**: 6 cycles per day (timely=0, evening=1, intraday_1=3, intraday_2=4, final=5, intraday_3=7)
 - **Coverage**: TW (Transwestern) pipeline system
 
-### CSV Data Format
+## File Naming Convention
+
+Downloaded files are saved with the following naming pattern:
+```
+tec_data_YYYYMMDD_cycle_N.csv
+```
+
+Examples:
+- `tec_data_20250607_cycle_0.csv` (timely cycle)
+- `tec_data_20250607_cycle_1.csv` (evening cycle)
+- `tec_data_20250607_cycle_5.csv` (final cycle)
+
+## Database Configuration
+
+The service uses PostgreSQL to store pipeline data. Database connection can be configured via environment variables:
+
+- `DB_HOST` (default: `localhost`)
+- `DB_NAME` (default: `tec_data`)
+- `DB_USER` (default: `postgres`)
+- `DB_PASSWORD` (default: `password`)
+- `DB_PORT` (default: `5432`)
+
+The database table is automatically created with the schema defined in `sql/init.sql`.
+
+## CSV Data Format
 
 Each CSV contains the following columns:
 - `Loc`: Location ID
-- `Loc Zn`: Location Zone
+- `Loc Zn`: Location Zone  
 - `Loc Name`: Location Name
 - `Loc Purp Desc`: Location Purpose Description
 - `Loc/QTI`: Location/QTI indicator
@@ -189,105 +191,13 @@ Each CSV contains the following columns:
 - `All Qty Avail`: All Quantity Available
 - `Qty Reason`: Quantity Reason
 
-## Database Setup and Uploading
-
-The `src/uploader.py` script handles uploading the downloaded CSV data into a PostgreSQL database.
-
-**Features:**
-- **Automated Table Creation**: Creates the `tec_data` table if it doesn't exist, matching the CSV structure.
-- **Pandas & SQLAlchemy**: Uses pandas for efficient CSV parsing and data manipulation, and SQLAlchemy for robust database interaction.
-- **Column Name Cleaning**: Automatically adjusts CSV column names to be database-friendly (e.g., "Loc Zn" becomes "loc_zn").
-- **Append Data**: Appends data to the table, allowing for multiple runs without duplicating schema.
-- **Environment Variable Configuration**: Database connection parameters can be set via environment variables.
-
-**Prerequisites:**
-- A running PostgreSQL server.
-- `psycopg2-binary`, `pandas`, and `SQLAlchemy` Python packages (included in `requirements.txt`).
-
-**Table Schema (`tec_data`):**
-- `id`: SERIAL PRIMARY KEY
-- `loc`: VARCHAR(255)
-- `loc_zn`: VARCHAR(255)
-- `loc_name`: VARCHAR(255)
-- `loc_purp_desc`: VARCHAR(255)
-- `loc_qti`: VARCHAR(255)
-- `flow_ind`: VARCHAR(10)
-- `dc`: INTEGER
-- `opc`: INTEGER
-- `tsq`: INTEGER
-- `oac`: INTEGER
-- `it`: VARCHAR(10)
-- `auth_overrun_ind`: VARCHAR(10)
-- `nom_cap_exceed_ind`: VARCHAR(10)
-- `all_qty_avail`: VARCHAR(10)
-- `qty_reason`: VARCHAR(255)
-
-## File Naming Convention
-
-Downloaded files are saved with the following naming pattern:
-```
-tec_data_YYYYMMDD_cycle_N.csv
-```
-
-Examples:
-- `tec_data_20240118_cycle_1.csv`
-- `tec_data_20240118_cycle_2.csv`
-- `tec_data_20240117_cycle_3.csv`
-
-## Logging
-
-The application provides detailed logging including:
-- Download progress and success/failure status
-- File save locations
-- Error messages and troubleshooting information
-- Scheduling information when running continuously
-
-Logs are printed to the console with timestamps and severity levels.
-
-## Configuration
-
-Key configuration options in the `src/downloader.py` (formerly `CSVDownloader` class):
-
-- `data_dir`: Directory to store downloaded files (default: "data")
-- `days_back`: Number of days to download (default: 3)
-- `BASE_URL`: Energy Transfer API endpoint
-- `timeout`: HTTP request timeout (default: 30 seconds)
-
-## Error Handling
-
-The downloader handles various error scenarios:
-- **Network Issues**: Retries and detailed error logging
-- **Invalid Responses**: Validates CSV format before saving
-- **Missing Data**: Logs when no data is available for specific dates/cycles
-- **File System Issues**: Creates directories and handles permissions
-
-
 ## Requirements
 
 - Python 3.7+
-- `requests` library for HTTP downloads
-- `psycopg2-binary` for PostgreSQL connection
-- `pandas` for data handling
-- `SQLAlchemy` for database interaction
-- Internet connection to access Energy Transfer API
-
-
-### Debug Mode
-
-To enable more verbose logging, modify the logging level in the Python files (e.g., `src/downloader.py`, `src/main.py`):
-```python
-logging.basicConfig(level=logging.DEBUG)
-```
+- PostgreSQL database
+- Docker and Docker Compose (for containerized setup)
+- Required Python packages (see `requirements.txt`)
 
 ## License
 
 This project is developed as part of a candidate assessment for TEC Energy.
-
-## Next Steps
-
-Future enhancements will include:
-- PostgreSQL database integration
-- Data validation and quality checks
-- RESTful API for data access
-- Containerization with Docker
-- Production deployment considerations
