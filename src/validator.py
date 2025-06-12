@@ -1,4 +1,10 @@
 import pandas as pd
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 EXPECTED_COLUMNS = {
     "loc": "object",  # String
@@ -33,13 +39,13 @@ def validate_dataframe(df: pd.DataFrame, file_path: str) -> pd.DataFrame | None:
     Returns:
         The validated (and potentially cleaned) DataFrame, or None if validation fails.
     """
-    print(f"Starting validation for {file_path}...")
+    logging.info(f"Starting validation for {file_path}...")
     validated_df = df.copy()
 
     # 1. Check for missing columns
     missing_cols = set(EXPECTED_COLUMNS.keys()) - set(validated_df.columns)
     if missing_cols:
-        print(
+        logging.error(
             f"Error in {file_path}: Missing expected columns: {missing_cols}. Skipping file."
         )
         return None
@@ -56,12 +62,12 @@ def validate_dataframe(df: pd.DataFrame, file_path: str) -> pd.DataFrame | None:
                 validated_df[col] = pd.to_numeric(validated_df[col], errors="coerce")
                 # Check if all values became NaN after coercion, which might indicate a fully non-numeric column
                 if validated_df[col].isnull().all() and not df[col].isnull().all():
-                    print(
+                    logging.warning(
                         f"Warning in {file_path}: Column '{col}' contains mostly non-numeric values and was coerced to all NaNs."
                     )
                 validated_df[col] = validated_df[col].astype(pd.Int64Dtype())
             except Exception as e:
-                print(
+                logging.error(
                     f"Error in {file_path}: Could not convert column '{col}' to Int64. Error: {e}. Skipping file."
                 )
                 return None
@@ -74,14 +80,14 @@ def validate_dataframe(df: pd.DataFrame, file_path: str) -> pd.DataFrame | None:
                 # If it's object, it might be mixed True/False/None from map, allow it.
                 # If it's already boolean, great.
                 # Otherwise, it's an issue.
-                print(
+                logging.warning(
                     f"Warning in {file_path}: Column '{col}' is not of boolean type after conversion. Actual type: {validated_df[col].dtype}"
                 )
         else:  # For 'object' (string) types, mostly rely on read_csv, but can add specific checks
             try:
                 validated_df[col] = validated_df[col].astype(expected_type)
             except TypeError as e:
-                print(
+                logging.error(
                     f"Error in {file_path}: Could not convert column '{col}' to {expected_type}. Error: {e}. Skipping file."
                 )
                 return None
@@ -90,7 +96,7 @@ def validate_dataframe(df: pd.DataFrame, file_path: str) -> pd.DataFrame | None:
     # (e.g., capacities, quantities)
     for col in NUMERIC_COLUMNS:
         if col in validated_df.columns and (validated_df[col] < 0).any():
-            print(
+            logging.warning(
                 f"Warning in {file_path}: Column '{col}' contains negative values. Review data integrity."
             )
             # Depending on policy, you might choose to:
@@ -102,7 +108,7 @@ def validate_dataframe(df: pd.DataFrame, file_path: str) -> pd.DataFrame | None:
     critical_cols_for_null_check = ["loc"]
     for col in critical_cols_for_null_check:
         if col in validated_df.columns and validated_df[col].isnull().any():
-            print(
+            logging.warning(
                 f"Warning in {file_path}: Critical column '{col}' contains null values."
             )
             # Depending on policy, might return None or filter out rows with nulls.
@@ -111,5 +117,5 @@ def validate_dataframe(df: pd.DataFrame, file_path: str) -> pd.DataFrame | None:
 
     # 6. Specific value checks for certain columns
 
-    print(f"Validation finished for {file_path}.")
+    logging.info(f"Validation finished for {file_path}.")
     return validated_df
