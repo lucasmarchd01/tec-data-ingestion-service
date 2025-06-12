@@ -176,7 +176,7 @@ def insert_data_from_csv_pandas(engine, csv_filepath):
             "nom_cap_exceed_ind",
             "all_qty_avail",
             "qty_reason",
-            "cycle",  # Added cycle column
+            "cycle",
         ]
         for col in expected_db_cols:
             if col not in df_validated.columns:
@@ -210,7 +210,7 @@ def insert_data_from_csv_pandas(engine, csv_filepath):
                 "opc": INTEGER,
                 "tsq": INTEGER,
                 "oac": INTEGER,
-                "cycle": INTEGER,  # Added cycle type
+                "cycle": INTEGER,
             },
         )
         logger.info(
@@ -243,7 +243,6 @@ def main():
                 csv_filepath = os.path.join(data_dir, filename)
                 print(f"Processing {csv_filepath}...")
                 insert_data_from_csv_pandas(engine, csv_filepath)
-                # print(f"Finished processing {csv_filepath}.") # Removed to reduce noise, error messages will indicate issues
 
         print("Data upload complete.")
 
